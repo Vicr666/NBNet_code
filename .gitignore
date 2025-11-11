@@ -1,0 +1,9 @@
+# Ignore everything
+*
+# Allow Git to traverse directories
+!*/
+# Keep this .gitignore file tracked
+!.gitignore
+# Allow Python files anywhere
+!*.py
+!**/*.py
