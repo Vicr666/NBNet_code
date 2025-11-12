@@ -60,7 +60,7 @@ def parse(opt_path, is_train=True):
             opt['path'][key] = osp.expanduser(path)
     # opt['path']['root'] = osp.abspath(osp.join(__file__, osp.pardir, osp.pardir, osp.pardir))
     # opt['path']['root'] = osp.abspath(osp.join(cur_file_dir()))
-    opt['path']['root'] = osp.abspath(osp.join('/home/rjxy02/data/SR/CWQRNet_code/'))
+    opt['path']['root'] = osp.abspath(osp.join('/home/rjxy02/data/SR/NBNet_code/'))
     # TODO: 000000 切换输出路径
 
     if is_train:
