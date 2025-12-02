@@ -1,0 +1,36 @@
+name: FLRN_DB_x4
+suffix: ~  # add suffix to saved images
+model: FLRN
+distortion: sr
+scale: 4
+crop_border: ~  # crop border when evaluation. If None(~), crop the scale pixels
+gpu_ids: [0]
+ab_wavelet: DCWML
+datasets:
+#  mode: ~ # memory cached
+#  train:
+#    GT_size: 144
+#
+  test_1:  # the 1st test dataset
+    name: set5
+    mode: LQGT
+    dataroot_GT: ../validation/Set5/HR/x4 # path to test HR images
+    dataroot_LQ: ../validation/Set5/LR/x4 # path to test reference LR images, not necessary, if not provided, LR images will be generated in dataloader
+
+
+#### network
+network_G:
+  which_model_G:
+    subnet_type: DBNet
+  in_nc: 3
+  out_nc: 3
+  block_num: [4, 4]
+  scale: 4
+  init: xavier
+  window_size: 8
+
+train:
+  save_pic: false
+#### path
+path:
+  pretrain_model_G: ./model/30000_GD4.pth
