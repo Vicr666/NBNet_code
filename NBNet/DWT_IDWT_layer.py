@@ -13,6 +13,7 @@ import math
 import pywt
 import torch
 import torch.nn as nn
+
 class ChannelAttention(nn.Module):
     def __init__(self, in_planes, ratio=15):
         super(ChannelAttention, self).__init__()
@@ -45,15 +46,16 @@ class DWT_2D(Module):
         """
         super(DWT_2D, self).__init__()
         wavelet = pywt.Wavelet(wavename)
-        self.band_low = wavelet.rec_lo
-        self.band_high = wavelet.rec_hi
+        self.band_low = wavelet.dec_lo
+        self.band_high = wavelet.dec_hi
         assert len(self.band_low) == len(self.band_high)
         self.band_length = len(self.band_low)
         assert self.band_length % 2 == 0
         self.band_length_half = math.floor(self.band_length / 2)
-        self.channel_attention1 = ChannelAttention(in_planes=3)
-        self.channel_attention2 = ChannelAttention(in_planes=12)
-        self.channel_attention3 = ChannelAttention(in_planes=9)
+
+        # self.channel_attention1 = ChannelAttention(in_planes=3)
+        # self.channel_attention2 = ChannelAttention(in_planes=12)
+        # self.channel_attention3 = ChannelAttention(in_planes=9)
 
     def get_matrix(self):
         """
@@ -117,6 +119,9 @@ class DWT_2D(Module):
         self.get_matrix()
         lfc, hfc_lh, hfc_hl, hfc_hh = DWTFunction_2D.apply(input, self.matrix_low_0, self.matrix_low_1,
                                                            self.matrix_high_0, self.matrix_high_1)
+        
+
+        return lfc, hfc_lh, hfc_hl, hfc_hh
         nnn = input.shape[1]
         if nnn == 3:
             lfc = lfc * self.channel_attention1(lfc)
@@ -151,9 +156,9 @@ class IDWT_2D(Module):
         super(IDWT_2D, self).__init__()
         wavelet = pywt.Wavelet(wavename)
 
-        self.band_low = wavelet.dec_lo
+        self.band_low = wavelet.rec_lo
         self.band_low.reverse()
-        self.band_high = wavelet.dec_hi
+        self.band_high = wavelet.rec_hi
         self.band_high.reverse()
         assert len(self.band_low) == len(self.band_high)
         self.band_length = len(self.band_low)

@@ -13,13 +13,15 @@ import torch.nn.functional as F
 import torch.nn.init as init
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 from torch.optim.lr_scheduler import _LRScheduler
+from basicsr.utils.registry import ARCH_REGISTRY
+from basicsr.archs.arch_util import to_2tuple, trunc_normal_
 
 from DWT_IDWT_layer import DWT_2D, IDWT_2D
 from utils import *
 
 from atten import GFEB
 from edge import CannyDetector
-
+from einops import rearrange
 
 class LFEB(nn.Module):
     def __init__(self, subnet_constructor, channel_num, channel_split_num, down_scale, clamp=1.):
@@ -71,7 +73,7 @@ class ConvMapping(nn.Module):
 # CWQRNet
 class CWQRNet(nn.Module):
     def __init__(self, channel_in=3, channel_out=3, subnet_constructor=None, block_num=[], attention=None,
-                 down_scale=4, wavelet='wfml'):
+                 down_scale=4, wavelet='DCWML'):
         super(CWQRNet, self).__init__()
 
         self.attention = attention
@@ -100,6 +102,7 @@ class CWQRNet(nn.Module):
             # b = ConvMapping(current_channel, down_scale)#普通维度映射
             operations.append(b)
             current_channel *= down_scale ** 2
+            # 添加QDAB块
             for j in range(block_num[i]):
                 b = LFEB(subnet_constructor, current_channel, channel_out, down_scale)
                 operations.append(b)
@@ -262,104 +265,75 @@ class DilatedConvBlock(nn.Module):
         # out = self.bn(out)
         out = self.gelu(out)
         return out
+    
+
+# Deep Future Extraction Layer 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from einops import rearrange
+
 # Deep Future Extraction Layer, QDAB
+
 def conv_layer2(in_channels, out_channels, kernel_size, stride=1, dilation=1, groups=1, bias=True):
     padding = int((kernel_size - 1) / 2) * dilation
     return nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding=padding, bias=bias, dilation=dilation,
                      groups=groups)
-
-class QDAB(nn.Module):
-    def __init__(self, channel_in, channel_out, init='xavier', gc=32, bias=True, use_norm=True, device='cpu', scale=2):
-        super(QDAB, self).__init__()
+    
+class MSGC(nn.Module):
+    def __init__(self, channel_in, channel_out, mid_channels=30, bias=True):
+        super(MSGC, self).__init__()
 
         self.gelu = nn.GELU()
-        self.conv1 = conv_layer2(channel_in, 30, 1)
-        self.aQDA=QDA()
-        self.pointwise_conv = nn.Conv2d(30*3, channel_out, kernel_size=1)
-        self.depthwise_conv12 = nn.Conv2d(30, 30, kernel_size=3, padding=1, dilation=1)
-        self.depthwise_conv13 = nn.Conv2d(30, 30, kernel_size=3, padding=1, dilation=1)
-        self.gelu = nn.GELU()
+        
+        # 入口
+        self.conv_entry = nn.Conv2d(channel_in, mid_channels, kernel_size=1, bias=bias)
+
+        # 分支 1：标准特征提取
+        self.conv_b1 = nn.Conv2d(mid_channels, mid_channels, kernel_size=3, padding=1, bias=bias)
+        
+        # 分支 2：深层特征提取 (串行在 b1 之后)
+        self.conv_b2 = nn.Conv2d(mid_channels, mid_channels, kernel_size=3, padding=1, bias=bias)
+        
+        # 分支 3 (替代 QDA)：门控注意力分支
+        # 使用 1x1 卷积从 b2 生成权重，模拟 Attention
+        self.conv_gate = nn.Conv2d(mid_channels, mid_channels, kernel_size=1, bias=bias)
+        self.sigmoid = nn.Sigmoid()
+
+        # 融合
+        # 这里的输入也是 30*3 = 90
+        self.pointwise_conv = nn.Conv2d(mid_channels * 3, channel_out, kernel_size=1, bias=bias)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x1=self.gelu(self.depthwise_conv12(x))
-        #qda开始
-        QDA_c1 = self.gelu(self.depthwise_conv13(x1))
-        c2 =  torch.cat([x1, QDA_c1], dim=1)
-        QDA_c2 = self.aQDA(QDA_c1)
-        x4 = QDA_c2
-        c3 =  torch.cat([c2, x4], dim=1)
-        x = self.pointwise_conv(c3)
-        return x
-
-#qda核心
-class QDA(nn.Module):
-    def __init__(self, in_ch=30, codebook_size=6, reduction=5):
-        super().__init__()
-        self.in_ch = in_ch
-        self.codebook_size = codebook_size
-        # 可学习码本 [C, K]
-        self.codebook = nn.Parameter(
-            torch.randn(in_ch, codebook_size))
-
-        # 特征压缩与编码
-        self.encoder = nn.Sequential(
-            nn.Conv2d(in_ch, in_ch // reduction, 1),
-            nn.ReLU(),
-            nn.Conv2d(in_ch // reduction, codebook_size, 1)
-        )
-
-        # 残差权重控制
-        self.gamma = nn.Parameter(torch.zeros(1))
-
-        # 初始化
-        nn.init.normal_(self.codebook, mean=0, std=0.02)
-        nn.init.kaiming_normal_(self.encoder[0].weight, mode='fan_out')
-
-    def forward(self, x):
-        """
-        输入: [1, 64, H, W]
-        输出: [1, 64, H, W]
-        """
-        B, C, H, W = x.shape
-
-
-        # 阶段1：特征编码与量化
-
-        # 生成编码logits [1, K, H, W]
-        logits = self.encoder(x)
-
-        # Gumbel-Softmax量化（可微分）
-        code_weights = F.gumbel_softmax(
-            logits.view(B, self.codebook_size, -1),
-            tau=0.5,
-            hard=True,
-            dim=1
-        )  # [B, K, H*W]
-
-
-        # 阶段2：码本查询与聚合
-
-        # 码本查询 [C, K] x [B, K, HW] -> [B, C, HW]
-        quantized = torch.matmul(
-            self.codebook,
-            code_weights
-        ).view(B, C, H, W)
-
-
-        # 阶段3：残差增强
-
-        return x + (self.gamma) * quantized
-
+        x_in = self.conv_entry(x)
+        
+        # 1. 基础特征
+        x1 = self.gelu(self.conv_b1(x_in))
+        
+        # 2. 进阶特征
+        x2_pre = self.gelu(self.conv_b2(x1))
+        
+        # 3. 门控操作 (模拟 QDA 的复杂变换)
+        # 用 x2 自己去计算一个 Gate，然后对自己进行加权
+        # 这是一种自注意力 (Self-Gating) 机制
+        gate = self.sigmoid(self.conv_gate(x2_pre))
+        x3 = x2_pre * gate  # 门控激活
+        
+        # 注意：这里 x2 我们取原始卷积结果，x3 取门控结果，x1 取浅层结果
+        # 这样保持了特征的多样性
+        c_out = torch.cat([x1, x2_pre, x3], dim=1)
+        
+        out = self.pointwise_conv(c_out)
+        return out
 
 
 def subnet(net_structure, init='xavier', use_norm=True, device='cpu', gc=32):
     def constructor(channel_in, channel_out):
         if net_structure == 'DBNet':
             if init == 'xavier':
-                return QDAB(channel_in, channel_out, init, use_norm=use_norm, device=device, gc=gc)
+                return MSGC(channel_in, channel_out)
             else:
-                return QDAB(channel_in, channel_out, use_norm=use_norm, device=device, gc=gc)
+                return MSGC(channel_in, channel_out)
         else:
             return None
 
@@ -539,10 +513,6 @@ class CosineAnnealingLR_Restart(_LRScheduler):
                 for group in self.optimizer.param_groups]
 
 
-
-
-
-
 class DownSampleWavelet(nn.Module):
     def __init__(self, wavename='haar'):
         super(DownSampleWavelet, self).__init__()
@@ -581,15 +551,134 @@ class HaarWavelet(nn.Module):
             # 1 3 144 144
         return x
 
+from waveatten import NAFBlock_Stabilizer
+
+class WaveletGatedTransformer(nn.Module):
+    """
+    专为小波拼接特征设计的“去噪与平滑” Transformer 变体。
+    
+    特点：
+    1. 极度轻量：基于通道注意力 (Restormer 风格)。
+    2. 门控去噪：使用 Gated-FFN 模拟小波软阈值操作，抑制高频干扰。
+    3. 空间平滑：内置 Depthwise Conv 解决小波造成的空间不连续问题。
+    """
+    def __init__(self, dim, num_heads=4, ffn_expansion=2.66, bias=False):
+        super(WaveletGatedTransformer, self).__init__()
+        
+        self.dim = dim
+        self.num_heads = num_heads
+        
+        # 1. 频带位置编码 (Frequency Embedding)
+        # 输入是 [LL, LH, HL, HH] 拼接，给它们打上可学习的标签
+        self.freq_embedding = nn.Parameter(torch.zeros(1, dim, 1, 1))
+        
+        # 2. 输入归一化 (LayerNorm 的通道维度变体)
+        self.norm1 = nn.GroupNorm(num_groups=1, num_channels=dim)
+        self.norm2 = nn.GroupNorm(num_groups=1, num_channels=dim)
+
+        # 3. 模块 A: 跨频带全局注意力 (Cross-Band Global Attention)
+        # 作用：利用频带间的协方差来校准特征
+        self.qkv = nn.Conv2d(dim, dim * 3, kernel_size=1, bias=bias)
+        self.qkv_dwconv = nn.Conv2d(dim * 3, dim * 3, kernel_size=3, padding=1, groups=dim * 3, bias=bias)
+        self.project_out = nn.Conv2d(dim, dim, kernel_size=1, bias=bias)
+        self.temperature = nn.Parameter(torch.ones(num_heads, 1, 1))
+
+        # 4. 模块 B: 门控前馈网络 (Gated-FFN) - 核心去噪组件
+        # 作用：模拟软阈值去噪，并平滑空间特征
+        hidden_dim = int(dim * ffn_expansion)
+        
+        # 4.1 升维
+        self.project_in = nn.Conv2d(dim, hidden_dim * 2, kernel_size=1, bias=bias)
+        
+        # 4.2 空间平滑 (Spatial Smoothing) 
+        # 关键！用于消除小波变换的“硬”边缘，实现到下一层的平滑过渡
+        self.dwconv = nn.Conv2d(hidden_dim * 2, hidden_dim * 2, kernel_size=3, padding=1, 
+                                groups=hidden_dim * 2, bias=bias)
+        
+        # 4.3 降维
+        self.project_ffn_out = nn.Conv2d(hidden_dim, dim, kernel_size=1, bias=bias)
+        
+        # 初始化
+        nn.init.trunc_normal_(self.freq_embedding, std=0.02)
+
+    def forward(self, x):
+        """
+        x: [Batch, 4*C, H/2, W/2] (小波四子带拼接)
+        """
+        b, c, h, w = x.shape
+        
+        # --- 步骤 0: 注入频带信息 ---
+        x = x + self.freq_embedding
+        shortcut = x
+
+        # --- 步骤 1: 跨频带注意力 (Global Context) ---
+        x_norm = self.norm1(x)
+        
+        # 生成 Q, K, V
+        qkv = self.qkv_dwconv(self.qkv(x_norm))
+        q, k, v = qkv.chunk(3, dim=1)
+        
+        # Reshape 为通道注意力形式: (B, Heads, C_per_head, HW)
+        q = q.view(b, self.num_heads, c // self.num_heads, -1)
+        k = k.view(b, self.num_heads, c // self.num_heads, -1)
+        v = v.view(b, self.num_heads, c // self.num_heads, -1)
+
+        # 计算通道协方差 (Attention Map)
+        q = F.normalize(q, dim=-1)
+        k = F.normalize(k, dim=-1)
+        attn = (q @ k.transpose(-2, -1)) * self.temperature
+        attn = attn.softmax(dim=-1)
+
+        # 应用注意力
+        out_attn = (attn @ v).view(b, c, h, w)
+        out_attn = self.project_out(out_attn)
+        
+        # 残差连接 1
+        x = shortcut + out_attn
+        shortcut = x
+
+        # --- 步骤 2: 门控去噪 FFN (Gated Denoising) ---
+        x_norm = self.norm2(x)
+        
+        # 升维 -> 深度卷积平滑
+        x_ffn = self.project_in(x_norm)
+        x_ffn = self.dwconv(x_ffn)
+        
+        # 拆分为两部分：特征部分(x1) 和 门控部分(x2)
+        x1, x2 = x_ffn.chunk(2, dim=1)
+        
+        # **门控机制 (Gating)**
+        # GELU 作为一个平滑的非线性函数，配合乘法，起到类似“软阈值”的作用
+        # 抑制噪声(低响应值)，保留特征(高响应值)
+        x_ffn = x1 * F.gelu(x2) 
+        
+        # 降维输出
+        x_ffn = self.project_ffn_out(x_ffn)
+        
+        # 残差连接 2
+        out = shortcut + x_ffn
+        
+        return out
+
 class Db2Wavelet(nn.Module):
     def __init__(self):
         super(Db2Wavelet, self).__init__()
         wavename = 'db2'
         self.down = DownSampleWavelet(wavename)
         self.up = UpSampleWavelet(wavename)
+        self.stb1 = NAFBlock_Stabilizer(c=12)
+        self.stb2 = NAFBlock_Stabilizer(c=48)
+
     def forward(self, x, rev=False):
         if not rev:
             x = torch.cat(self.down(x), dim=1)
+            nnn = x.shape[1]
+            if nnn == 12:
+                x = self.stb1(x)
+            elif nnn ==48:
+                x = self.stb2(x)
+            else:
+                x = self.stb3(x)
         else:
             c = x.shape[1] // 2 // 2
             x = self.up(x[:, 0*c:1*c],
@@ -878,9 +967,7 @@ def define_G(opt):
     upscale = opt_net['scale']
     window_size = opt_net['window_size']
     height, width = 144, 144
-    # TODO: 注意力个数设置
-
-
+    # 添加注意力模块
     attention = None
     cnt = 2
     if cnt == 1:
@@ -890,7 +977,7 @@ def define_G(opt):
     if cnt == 2:
         attention = GFEB(upscale=upscale, img_size=(height, width),
                            window_size=window_size, img_range=1., depths=[2, 2],
-                           embed_dim=20, num_heads=[2, 2], mlp_ratio=2, upsampler='pixelshuffledirect')
+                           embed_dim=60, num_heads=[2, 2], mlp_ratio=2, upsampler='pixelshuffledirect')
 
     if cnt == 3:
         attention = GFEB(upscale=upscale, img_size=(height, width),
