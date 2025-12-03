@@ -122,23 +122,6 @@ class DWT_2D(Module):
         
 
         return lfc, hfc_lh, hfc_hl, hfc_hh
-        nnn = input.shape[1]
-        if nnn == 3:
-            lfc = lfc * self.channel_attention1(lfc)
-            hfc_lh = hfc_lh * self.channel_attention1(hfc_lh)
-            hfc_hl = hfc_hl * self.channel_attention1(hfc_hl)
-            hfc_hh = hfc_hh * self.channel_attention1(hfc_hh)
-        elif nnn ==12 :
-            lfc = lfc * self.channel_attention2(lfc)
-            hfc_lh = hfc_lh * self.channel_attention2(hfc_lh)
-            hfc_hl = hfc_hl * self.channel_attention2(hfc_hl)
-            hfc_hh = hfc_hh * self.channel_attention2(hfc_hh)
-        else:
-            lfc = lfc * self.channel_attention3(lfc)
-            hfc_lh = hfc_lh * self.channel_attention3(hfc_lh)
-            hfc_hl = hfc_hl * self.channel_attention3(hfc_hl)
-            hfc_hh = hfc_hh * self.channel_attention3(hfc_hh)
-        return lfc, hfc_lh, hfc_hl, hfc_hh
 
 class IDWT_2D(Module):
     """
