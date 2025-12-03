@@ -620,45 +620,45 @@ class PatchUnEmbed(nn.Module):
         return x
 
 
-class Upsample(nn.Sequential):
-    """Upsample module.
+# class Upsample(nn.Sequential):
+#     """Upsample module.
 
-    Args:
-        scale (int): Scale factor. Supported scales: 2^n and 3.
-        num_feat (int): Channel number of intermediate features.
-    """
+#     Args:
+#         scale (int): Scale factor. Supported scales: 2^n and 3.
+#         num_feat (int): Channel number of intermediate features.
+#     """
 
-    def __init__(self, scale, num_feat):
-        m = []
-        if (scale & (scale - 1)) == 0:  # scale = 2^n
-            for _ in range(int(math.log(scale, 2))):
-                m.append(nn.Conv2d(num_feat, 4 * num_feat, 3, 1, 1))
-                m.append(nn.PixelShuffle(2))
-        elif scale == 3:
-            m.append(nn.Conv2d(num_feat, 9 * num_feat, 3, 1, 1))
-            m.append(nn.PixelShuffle(3))
-        else:
-            raise ValueError(f'scale {scale} is not supported. ' 'Supported scales: 2^n and 3.')
-        super(Upsample, self).__init__(*m)
+#     def __init__(self, scale, num_feat):
+#         m = []
+#         if (scale & (scale - 1)) == 0:  # scale = 2^n
+#             for _ in range(int(math.log(scale, 2))):
+#                 m.append(nn.Conv2d(num_feat, 4 * num_feat, 3, 1, 1))
+#                 m.append(nn.PixelShuffle(2))
+#         elif scale == 3:
+#             m.append(nn.Conv2d(num_feat, 9 * num_feat, 3, 1, 1))
+#             m.append(nn.PixelShuffle(3))
+#         else:
+#             raise ValueError(f'scale {scale} is not supported. ' 'Supported scales: 2^n and 3.')
+#         super(Upsample, self).__init__(*m)
 
 
-class UpsampleOneStep(nn.Sequential):
-    """UpsampleOneStep module (the difference with Upsample is that it always only has 1conv + 1pixelshuffle)
-       Used in lightweight SR to save parameters.
+# class UpsampleOneStep(nn.Sequential):
+#     """UpsampleOneStep module (the difference with Upsample is that it always only has 1conv + 1pixelshuffle)
+#        Used in lightweight SR to save parameters.
 
-    Args:
-        scale (int): Scale factor. Supported scales: 2^n and 3.
-        num_feat (int): Channel number of intermediate features.
+#     Args:
+#         scale (int): Scale factor. Supported scales: 2^n and 3.
+#         num_feat (int): Channel number of intermediate features.
 
-    """
+#     """
 
-    def __init__(self, scale, num_feat, num_out_ch, input_resolution=None):
-        self.num_feat = num_feat
-        self.input_resolution = input_resolution
-        m = []
-        m.append(nn.Conv2d(num_feat, (scale ** 2) * num_out_ch, 3, 1, 1))
-        m.append(nn.PixelShuffle(scale))
-        super(UpsampleOneStep, self).__init__(*m)
+#     def __init__(self, scale, num_feat, num_out_ch, input_resolution=None):
+#         self.num_feat = num_feat
+#         self.input_resolution = input_resolution
+#         m = []
+#         m.append(nn.Conv2d(num_feat, (scale ** 2) * num_out_ch, 3, 1, 1))
+#         m.append(nn.PixelShuffle(scale))
+#         super(UpsampleOneStep, self).__init__(*m)
 
 
 # @ARCH_REGISTRY.register()
@@ -844,20 +844,3 @@ class HiT_SRF(nn.Module):
         x = x / self.img_range + self.mean
 
         return x[:, :, :H*self.upscale, :W*self.upscale]
-
-
-# if __name__ == '__main__':
-#     upscale = 4
-#     base_win_size = [8, 8]
-#     height = (1024 // upscale // base_win_size[0] + 1) * base_win_size[0]
-#     width = (720 // upscale // base_win_size[1] + 1) * base_win_size[1]
-    
-#     ## HiT-SIR
-#     model = HiT_SRF(upscale=4, img_size=(height, width),
-#                    base_win_size=base_win_size, img_range=1., depths=[6, 6, 6, 6],
-#                    embed_dim=60, num_heads=[6, 6, 6, 6], mlp_ratio=2, upsampler='pixelshuffledirect')
-
-#     params_num = sum(p.numel() for p in model.parameters() if p.requires_grad)
-#     print("params: ", params_num)
-
-

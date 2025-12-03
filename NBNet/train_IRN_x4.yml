@@ -61,7 +61,7 @@ network_G:
 path:
   pretrain_model_G: ~ # /root/autodl-tmp/experiments/01_IRN_DB_x4_scratch_DIV2K/models/5000_G.pth
   strict_load: true
-  resume_state: ~ # /home/rjxy02/data/SR/NBNet_code/experiments/MLRN_DB_x4_DIV2K_AB_009_archived_251126-164909/models/1000_G.pth
+  resume_state: ~ # /home/rjxy02/data/SR/NBNet_code/experiments/MLRN_DB_x4_DIV2K_AB_009/training_state/1000.state
 
 
 #### training settings: learning rate scheme, loss

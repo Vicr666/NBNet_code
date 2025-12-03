@@ -207,6 +207,7 @@ class GFEB(nn.Module):
         x_b = x
         x_jb = self.act2(self.last_conv2(x))
         x_jb_z = self.ft(x_jb) * x
+        x_jb_z = x_jb
         x_c = torch.concat([self.t(x), x_jb_z], dim=1)
         x = self.last_conv4(self.last_conv3(x_c))
         x = self.act2(x)

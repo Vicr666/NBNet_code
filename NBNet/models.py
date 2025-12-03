@@ -551,7 +551,7 @@ class HaarWavelet(nn.Module):
             # 1 3 144 144
         return x
 
-from waveatten import NAFBlock_Stabilizer
+from waveatten import NAFBlock_Stabilizer_Opt
 
 class WaveletGatedTransformer(nn.Module):
     """
@@ -666,8 +666,8 @@ class Db2Wavelet(nn.Module):
         wavename = 'db2'
         self.down = DownSampleWavelet(wavename)
         self.up = UpSampleWavelet(wavename)
-        self.stb1 = NAFBlock_Stabilizer(c=12)
-        self.stb2 = NAFBlock_Stabilizer(c=48)
+        self.stb1 = NAFBlock_Stabilizer_Opt(c=12)
+        self.stb2 = NAFBlock_Stabilizer_Opt(c=48)
 
     def forward(self, x, rev=False):
         if not rev:
@@ -675,10 +675,8 @@ class Db2Wavelet(nn.Module):
             nnn = x.shape[1]
             if nnn == 12:
                 x = self.stb1(x)
-            elif nnn ==48:
+            elif nnn == 48:
                 x = self.stb2(x)
-            else:
-                x = self.stb3(x)
         else:
             c = x.shape[1] // 2 // 2
             x = self.up(x[:, 0*c:1*c],
