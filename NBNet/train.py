@@ -71,7 +71,7 @@ def main(step=None, path=None):
     # Rectify for debug
     # opt['train']['niter'] = 50000  # per 5000 iters saves a model and test model
     opt['logger']['print_freq'] = 100  # print train info
-    opt['logger']['save_checkpoint_freq'] = 1000  # print train info
+    opt['logger']['save_checkpoint_freq'] = 100  # print train info
     opt['train']['val_freq'] = 100  # print validation info
 
     # for swi transformer windows size

@@ -743,22 +743,23 @@ class HiT_SRF(nn.Module):
 
         # build Residual Hierarchical Transformer blocks (RHTB)
         self.layers = nn.ModuleList()
-        layer = RHTB(dim=embed_dim,
-                         input_resolution=(patches_resolution[0], patches_resolution[1]),
-                         depth=depths[0],
-                         num_heads=num_heads[0],
-                         base_win_size=base_win_size,
-                         mlp_ratio=self.mlp_ratio,
-                         drop=drop_rate, value_drop=value_drop_rate,
-                         drop_path=dpr[sum(depths[:0]):sum(depths[:0 + 1])],  # no impact on SR results
-                         norm_layer=norm_layer,
-                         downsample=None,
-                         use_checkpoint=use_checkpoint,
-                         img_size=img_size,
-                         patch_size=patch_size,
-                         resi_connection=resi_connection,
-                         hier_win_ratios=hier_win_ratios
-                         )
+        for i_layer in range(self.num_layers):
+            layer = RHTB(dim=embed_dim,
+                            input_resolution=(patches_resolution[0], patches_resolution[1]),
+                            depth=depths[i_layer],
+                            num_heads=num_heads[0],
+                            base_win_size=base_win_size,
+                            mlp_ratio=self.mlp_ratio,
+                            drop=drop_rate, value_drop=value_drop_rate,
+                            drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],  # no impact on SR results
+                            norm_layer=norm_layer,
+                            downsample=None,
+                            use_checkpoint=use_checkpoint,
+                            img_size=img_size,
+                            patch_size=patch_size,
+                            resi_connection=resi_connection,
+                            hier_win_ratios=hier_win_ratios
+                            )
         self.layers.append(layer)
         self.norm = norm_layer(self.num_features)
 

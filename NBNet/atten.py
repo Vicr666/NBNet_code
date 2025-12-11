@@ -41,95 +41,6 @@ to_3tuple = _ntuple(3)
 to_4tuple = _ntuple(4)
 to_ntuple = _ntuple
 
-# def drop_path(x, drop_prob: float = 0., training: bool = False, scale_by_keep: bool = True):
-#     if drop_prob == 0. or not training:
-#         return x
-#     keep_prob = 1 - drop_prob
-#     shape = (x.shape[0],) + (1,) * (x.ndim - 1)  # work with diff dim tensors, not just 2D ConvNets
-#     random_tensor = x.new_empty(shape).bernoulli_(keep_prob)
-#     if keep_prob > 0.0 and scale_by_keep:
-#         random_tensor.div_(keep_prob)
-#     return x * random_tensor
-
-# class DropPath(nn.Module):
-#     def __init__(self, drop_prob: float = 0., scale_by_keep: bool = True):
-#         super(DropPath, self).__init__()
-#         self.drop_prob = drop_prob
-#         self.scale_by_keep = scale_by_keep
-
-#     def forward(self, x):
-#         return drop_path(x, self.drop_prob, self.training, self.scale_by_keep)
-
-#     def extra_repr(self):
-#         return f'drop_prob={round(self.drop_prob,3):0.3f}'
-
-
-# def window_partition(x, window_size):
-#     B, H, W, C = x.shape
-#     x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
-#     windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
-#     return windows
-
-
-# def window_reverse(windows, window_size, H, W):
-#     B = int(windows.shape[0] / (H * W / window_size / window_size))
-#     x = windows.view(B, H // window_size, W // window_size, window_size, window_size, -1)
-#     x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, H, W, -1)
-#     return x
-
-
-# class BasicLayer(nn.Module):
-
-#     def __init__(self, dim, input_resolution, depth, num_heads, window_size,
-#                  mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0.,
-#                  drop_path=0., norm_layer=nn.LayerNorm, downsample=None, use_checkpoint=False):
-
-#         super().__init__()
-#         self.dim = dim
-#         self.input_resolution = input_resolution
-#         self.depth = depth
-#         self.use_checkpoint = use_checkpoint
-
-#         # build blocks
-#         self.blocks = nn.ModuleList([
-#             STB(dim=dim, input_resolution=input_resolution,
-#                                  num_heads=num_heads, window_size=window_size,
-#                                  shift_size=0 if (i % 2 == 0) else window_size // 2,
-#                                  mlp_ratio=mlp_ratio,
-#                                  qkv_bias=qkv_bias, qk_scale=qk_scale,
-#                                  drop=drop, attn_drop=attn_drop,
-#                                  drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
-#                                  norm_layer=norm_layer)
-#             for i in range(depth)])
-
-#         # patch merging layer
-#         if downsample is not None:
-#             self.downsample = downsample(input_resolution, dim=dim, norm_layer=norm_layer)
-#         else:
-#             self.downsample = None
-
-#     def forward(self, x, x_size):
-#         for blk in self.blocks:
-#             if self.use_checkpoint:
-#                 x = checkpoint.checkpoint(blk, x, x_size)
-#             else:
-#                 x = blk(x, x_size)
-#         if self.downsample is not None:
-#             x = self.downsample(x)
-#         return x
-
-#     def extra_repr(self) -> str:
-#         return f"dim={self.dim}, input_resolution={self.input_resolution}, depth={self.depth}"
-
-#     def flops(self):
-#         flops = 0
-#         for blk in self.blocks:
-#             flops += blk.flops()
-#         if self.downsample is not None:
-#             flops += self.downsample.flops()
-#         return flops
-
-
 import test_srformer as Transformer2
 class GFEB(nn.Module):
 
@@ -170,15 +81,16 @@ class GFEB(nn.Module):
         self.apply(self._init_weights)
         base_win_size = [16, 16]
         self.t = Transformer2.HiT_SRF(upscale=4, img_size=img_size,
-                   base_win_size=base_win_size, img_range=1., depths=[6],
-                   embed_dim=60, num_heads=[6], mlp_ratio=2, upsampler='pixelshuffledirect')
+                   base_win_size=base_win_size, img_range=1., depths=[3, 3],
+                   embed_dim=60, num_heads=[2,2], mlp_ratio=2, upsampler='pixelshuffledirect')
         # self.t = Transformer2.LCFormer()
         self.act2 = nn.GELU()
 
-        self.ft = FeaTiao_LKA()
+        # self.ft = FeaTiao_LKA()
+        self.ft = SpatialWeighting_Block()
         self.last_conv2 = nn.Conv2d(60, 60, 3, 1, 1)
         self.last_conv3 = nn.Conv2d(120, 60, 1, 1, 1)
-        self.last_conv4 = nn.Conv2d(60, 60, 3, 1, 1)
+        self.last_conv4 = nn.Conv2d(120, 60, 3, 1, 1)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -207,7 +119,8 @@ class GFEB(nn.Module):
         x_jb = self.act2(self.last_conv2(x))
         x_jb_z = self.ft(x_jb) * x
         x_c = torch.concat([self.t(x), x_jb_z], dim=1)
-        x = self.last_conv4(self.last_conv3(x_c))
+        # x_c = self.t(x)
+        x = self.last_conv4(x_c)
         x = self.act2(x)
         x = self.last_conv(x)
         x = x / self.img_range + self.mean
@@ -221,7 +134,7 @@ class FeaTiao_LKA(nn.Module):
         # 1. 深度卷积 (5x5) - 捕获局部信息
         self.conv0 = nn.Conv2d(dim, dim, 5, padding=2, groups=dim)
         
-        # 2. 深度空洞卷积 (7x7, dilation=3) - 捕获长距离/全局信息
+        # 2. 深度空洞卷积 (7x7, dilation=3) - 增大感受野
         # 感受野相当于 5 + (7-1)*3 = 23
         self.conv_spatial = nn.Conv2d(dim, dim, 7, stride=1, padding=9, groups=dim, dilation=3)
         
@@ -233,5 +146,56 @@ class FeaTiao_LKA(nn.Module):
         attn = self.conv_spatial(attn)
         attn = self.conv1(attn)
         
-        # LKA 的输出通常作为 Attention Map 与原图相乘
         return attn
+    
+class SpatialWeighting_Block(nn.Module):
+    def __init__(self, dim=60):
+        super(SpatialWeighting_Block, self).__init__()
+        
+        # ==========================================
+        # 分支 1: 权重生成器 (Weight Generator) - 7x7
+        # 目标: 返回权重 (0~1)
+        # ==========================================
+        self.weight_generator = nn.Sequential(
+            # 第一步：大感受野感知上下文
+            nn.Conv2d(dim, dim, 7, padding=3, groups=dim), 
+            
+            # 第二步：通道融合，整合信息
+            nn.Conv2d(dim, dim, 1),
+            
+            # 第三步：生成权重 (关键)
+            # Sigmoid 将输出压缩到 0 到 1 之间，使其成为真正的"权重"
+            nn.Sigmoid() 
+        )
+        
+        # ==========================================
+        # 分支 2: 特征提取器 (Feature Extractor) - 5x5
+        # 目标: 提取原始纹理特征
+        # ==========================================
+        self.feature_extractor = nn.Sequential(
+            # 纯局部特征提取
+            nn.Conv2d(dim, dim, 5, padding=2, groups=dim),
+            nn.Conv2d(dim, dim, 1),
+            nn.GELU() # 这里用 GELU 提取非线性特征
+        )
+
+        # 最后的融合层
+        self.fusion = nn.Conv2d(dim, dim, 1)
+
+    def forward(self, x):
+        
+        # 1. 生成权重图 (Batch, Dim, H, W)
+        # 这里的 weights 里的值都在 0~1 之间
+        weights = self.weight_generator(x)
+        
+        # 2. 生成特征图 (Batch, Dim, H, W)
+        features = self.feature_extractor(x)
+        
+        # 3. 加权操作 (Element-wise Product)
+        # 特征 * 权重：保留高权重区域的纹理，抑制低权重区域的噪声
+        weighted_features = features * weights
+        
+        # 4. 融合与残差
+        out = self.fusion(weighted_features)
+        
+        return out

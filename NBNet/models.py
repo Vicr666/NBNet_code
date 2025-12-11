@@ -537,9 +537,16 @@ class HaarWavelet(nn.Module):
         wavename = 'haar'
         self.down = DownSampleWavelet(wavename)
         self.up = UpSampleWavelet(wavename)
+        self.stb1 = NAFBlock_Stabilizer_Opt(c=12)
+        self.stb2 = NAFBlock_Stabilizer_Opt(c=48)
     def forward(self, x, rev=False):
         if not rev:
             x = torch.cat(self.down(x), dim=1)
+            nnn = x.shape[1]
+            if nnn == 12:
+                x = self.stb1(x)
+            elif nnn == 48:
+                x = self.stb2(x)
         else:
             c = x.shape[1] // 2 // 2
             x = self.up(x[:, 0*c:1*c],
@@ -666,17 +673,17 @@ class Db2Wavelet(nn.Module):
         wavename = 'db2'
         self.down = DownSampleWavelet(wavename)
         self.up = UpSampleWavelet(wavename)
-        self.stb1 = NAFBlock_Stabilizer_Opt(c=12)
-        self.stb2 = NAFBlock_Stabilizer_Opt(c=48)
+        # self.stb1 = NAFBlock_Stabilizer_Opt(c=12)
+        # self.stb2 = NAFBlock_Stabilizer_Opt(c=48)
 
     def forward(self, x, rev=False):
         if not rev:
             x = torch.cat(self.down(x), dim=1)
-            nnn = x.shape[1]
-            if nnn == 12:
-                x = self.stb1(x)
-            elif nnn == 48:
-                x = self.stb2(x)
+            # nnn = x.shape[1]
+            # if nnn == 12:
+            #     x = self.stb1(x)
+            # elif nnn == 48:
+            #     x = self.stb2(x)
         else:
             c = x.shape[1] // 2 // 2
             x = self.up(x[:, 0*c:1*c],
@@ -734,9 +741,16 @@ class Ch3p3Wavelet(nn.Module):
         wavename = 'bior3.3'
         self.down = DownSampleWavelet(wavename)
         self.up = UpSampleWavelet(wavename)
+        # self.stb1 = NAFBlock_Stabilizer_Opt(c=12)
+        # self.stb2 = NAFBlock_Stabilizer_Opt(c=48)
     def forward(self, x, rev=False):
         if not rev:
             x = torch.cat(self.down(x), dim=1)
+            # nnn = x.shape[1]
+            # if nnn == 12:
+            #     x = self.stb1(x)
+            # elif nnn == 48:
+            #     x = self.stb2(x)
         else:
             c = x.shape[1] // 2 // 2
             x = self.up(x[:, 0*c:1*c],

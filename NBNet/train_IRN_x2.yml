@@ -5,7 +5,7 @@ name: MLRN_DB_x4_DIV2K_AB_009
 use_tb_logger: false  # default: true
 model: MLRN
 distortion: sr
-scale: 4
+scale: 2
 gpu_ids: [0]
 #use_KL_Loss: True
 use_KL_Loss: False # 7w go!
@@ -21,7 +21,7 @@ datasets:
     name: DIV2K
     mode: LQGT
     dataroot_GT: /home/rjxy02/data/MAD/training_data/DIV2K_decoded/DIV2K_HR # path to training HR images
-    dataroot_LQ: /home/rjxy02/data/MAD/training_data/DIV2K_decoded/DIV2K_LR_bicubic/x4 # path to training reference LR images, not necessary, if not provided, LR images will be generated in dataloader
+    dataroot_LQ: /home/rjxy02/data/MAD/training_data/DIV2K_decoded/DIV2K_LR_bicubic/x2 # path to training reference LR images, not necessary, if not provided, LR images will be generated in dataloader
 
     use_shuffle: true
     n_workers: 6  # per GPU
@@ -41,7 +41,7 @@ datasets:
     name: Set5
     mode: LQGT
     dataroot_GT: /home/rjxy02/data/MAD/val_data/Set5 # path to test HR images
-    dataroot_LQ: /home/rjxy02/data/MAD/val_data/Set5_LR/x4 # path to test reference LR images, not necessary, if not provided, LR images will be generated in dataloader
+    dataroot_LQ: /home/rjxy02/data/MAD/val_data/Set5_LR/x2 # path to test reference LR images, not necessary, if not provided, LR images will be generated in dataloader
 
 
 #### network structures
@@ -52,16 +52,16 @@ network_G:
   in_nc: 3
   out_nc: 3
   block_num: [4, 4]
-  scale: 4
+  scale: 2
   init: xavier
   window_size: 8
 
 #### path
 
 path:
-  pretrain_model_G: /home/rjxy02/data/SR/NBNet_code/experiments/MLRN_DB_x4_DIV2K_AB_009/models/10000_G.pth
+  pretrain_model_G: ~ # /root/autodl-tmp/experiments/01_IRN_DB_x4_scratch_DIV2K/models/5000_G.pth
   strict_load: true
-  resume_state: /home/rjxy02/data/SR/NBNet_code/experiments/MLRN_DB_x4_DIV2K_AB_009/training_state/10000.state
+  resume_state: ~ # /home/rjxy02/data/SR/NBNet_code/experiments/MLRN_DB_x4_DIV2K_AB_009/training_state/1000.state
 
 
 #### training settings: learning rate scheme, loss
