@@ -1,7 +1,7 @@
 
 #### general settings
 
-name: MLRN_DB_x4_DIV2K_AB_009
+name: MLRN_DB_x4_DIV2K_AB_contd
 use_tb_logger: false  # default: true
 model: MLRN
 distortion: sr
@@ -59,9 +59,9 @@ network_G:
 #### path
 
 path:
-  pretrain_model_G: /home/rjxy02/data/SR/NBNet_code/experiments/MLRN_DB_x4_DIV2K_AB_009/models/10000_G.pth
+  pretrain_model_G: /home/rjxy02/data/SR/NBNet_code/experiments/MLRN_DB_x4_DIV2K_AB_009/models/9000_G.pth
   strict_load: true
-  resume_state: /home/rjxy02/data/SR/NBNet_code/experiments/MLRN_DB_x4_DIV2K_AB_009/training_state/10000.state
+  resume_state: /home/rjxy02/data/SR/NBNet_code/experiments/MLRN_DB_x4_DIV2K_AB_009/training_state/9000.state
 
 
 #### training settings: learning rate scheme, loss

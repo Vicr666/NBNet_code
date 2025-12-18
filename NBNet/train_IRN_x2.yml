@@ -51,7 +51,7 @@ network_G:
       subnet_type: DBNet
   in_nc: 3
   out_nc: 3
-  block_num: [4, 4]
+  block_num: [4]
   scale: 2
   init: xavier
   window_size: 8

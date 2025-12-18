@@ -33,14 +33,14 @@ def init_dist(backend='nccl', **kwargs):
 
 def main(step=None, path=None):
     if path is None:
-        opt_path = 'train_IRN_x2.yml'
+        opt_path = 'train_IRN_x4.yml'
     else:
         opt_path = path
 
     #### options
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-opt', type=str, default="train_IRN_x2.yml")
+    parser.add_argument('-opt', type=str, default="train_IRN_x4.yml")
 
     parser.add_argument('--launcher', choices=['none', 'pytorch'], default='none', help='job launcher')
 

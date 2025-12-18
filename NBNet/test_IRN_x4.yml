@@ -11,16 +11,26 @@ datasets:
 #  train:
 #    GT_size: 144
 #
-  # test_1:  # the 1st test dataset
-  #   name: set5
-  #   mode: LQGT
-  #   dataroot_GT: /home/rjxy02/data/MAD/val_data/Set5 # path to test HR images
-  #   dataroot_LQ: /home/rjxy02/data/MAD/val_data/Set5_LR/x4 # path to test reference LR images, not necessary, if not provided, LR images will be generated in dataloader
   test_1:  # the 1st test dataset
-    name: Set14
+    name: set5
     mode: LQGT
-    dataroot_GT: /home/rjxy02/data/SR/NBNet_code/test/Set14/Set14_HR/x4 # path to test HR images
-    dataroot_LQ: /home/rjxy02/data/SR/NBNet_code/test/Set14/Set14_LR/x4 # path to test reference LR images, not necessary, if not provided, LR images will be generated in dataloader
+    dataroot_GT: /home/rjxy02/data/MAD/val_data/Set5 # path to test HR images
+    dataroot_LQ: /home/rjxy02/data/MAD/val_data/Set5_LR/x4 # path to test reference LR images, not necessary, if not provided, LR images will be generated in dataloader
+  # test_1:  # the 1st test dataset
+  #   name: Set14
+  #   mode: LQGT
+  #   dataroot_GT: /home/rjxy02/data/SR/NBNet_code/test/Set14/Set14_HR/x4 # path to test HR images
+  #   dataroot_LQ: /home/rjxy02/data/SR/NBNet_code/test/Set14/Set14_LR/x4 # path to test reference LR images, not necessary, if not provided, LR images will be generated in dataloader
+  # test_1:  # the 1st test dataset
+  #   name: Urban100
+  #   mode: LQGT
+  #   dataroot_GT: /home/rjxy02/data/SR/NBNet_code/test/Urban100/Urban100_HR # path to test HR images
+  #   dataroot_LQ: /home/rjxy02/data/SR/NBNet_code/test/Urban100/Urban100_LR_x4 # path to test reference LR images, not necessary, if not provided, LR images will be generated in dataloader
+  # test_1:  # the 1st test dataset
+  #   name: BSD100
+  #   mode: LQGT
+  #   dataroot_GT: /home/rjxy02/data/SR/NBNet_code/test/BSD100/BSD100_HR # path to test HR images
+  #   dataroot_LQ: /home/rjxy02/data/SR/NBNet_code/test/BSD100/BSD100_LR_x4 # path to test reference LR images, not necessary, if not provided, LR images will be generated in dataloader
 
 #### network
 network_G:
@@ -37,4 +47,4 @@ train:
   save_pic: false
 #### path
 path:
-  pretrain_model_G: /home/rjxy02/data/SR/NBNet_code/experiments/MLRN_DB_x4_DIV2K_AB_009/models/10000_G.pth
+  pretrain_model_G: /home/rjxy02/data/SR/NBNet_code/experiments/MLRN_DB_x4_DIV2K_AB_contd/models/11500_G.pth

@@ -29,7 +29,13 @@ class LFEB(nn.Module):
         self.scale = down_scale
         self.split_len1 = channel_split_num
         self.split_len2 = channel_num - channel_split_num
-
+        # if self.split_len2 <= 0:
+        #     # fallback: 将通道按半分
+        #     self.split_len1 = channel_num // 2
+        #     self.split_len2 = channel_num - self.split_len1
+        #     import warnings
+        #     warnings.warn(f"LFEB: channel_split_num too large, fallback to half split: "
+        #                 f"split_len1={self.split_len1}, split_len2={self.split_len2}")
         self.clamp = clamp
 
         self.F = subnet_constructor(self.split_len2, self.split_len1)
@@ -862,7 +868,8 @@ class MLRNModel(BaseModel):
 
         zshape = self.output[:, 3:, :, :].shape
         LR_ref = self.ref_L.detach()
-
+        if self.output[:, :3, :, :].shape[2:] != LR_ref.shape[2:]:
+            raise RuntimeError(f"Spatial size mismatch: output {self.output[:, :3, :, :].shape[2:]} != LR_ref {LR_ref.shape[2:]}")
         l_forw_fit = self.loss_forward(self.output[:, :3, :, :], LR_ref, self.output[:, 3:, :, :])
 
         # backward upscaling
