@@ -127,27 +127,6 @@ class GFEB(nn.Module):
 
         return x[:, :, :H, :W]
 
-
-class FeaTiao_LKA(nn.Module):
-    def __init__(self, dim=60):
-        super(FeaTiao_LKA, self).__init__()
-        # 1. 深度卷积 (5x5) - 捕获局部信息
-        self.conv0 = nn.Conv2d(dim, dim, 5, padding=2, groups=dim)
-        
-        # 2. 深度空洞卷积 (7x7, dilation=3) - 增大感受野
-        # 感受野相当于 5 + (7-1)*3 = 23
-        self.conv_spatial = nn.Conv2d(dim, dim, 7, stride=1, padding=9, groups=dim, dilation=3)
-        
-        # 3. 1x1 卷积 - 融合通道
-        self.conv1 = nn.Conv2d(dim, dim, 1)
-
-    def forward(self, x):     
-        attn = self.conv0(x)
-        attn = self.conv_spatial(attn)
-        attn = self.conv1(attn)
-        
-        return attn
-    
 class SpatialWeighting_Block(nn.Module):
     def __init__(self, dim=60):
         super(SpatialWeighting_Block, self).__init__()
@@ -156,6 +135,7 @@ class SpatialWeighting_Block(nn.Module):
         # 分支 1: 权重生成器 (Weight Generator) - 7x7
         # 目标: 返回权重 (0~1)
         # ==========================================
+        self.sig = nn.Sigmoid()
         self.weight_generator = nn.Sequential(
             # 第一步：大感受野感知上下文
             nn.Conv2d(dim, dim, 7, padding=3, groups=dim), 
@@ -197,5 +177,5 @@ class SpatialWeighting_Block(nn.Module):
         
         # 4. 融合与残差
         out = self.fusion(weighted_features)
-        
+        out = self.sig(out)
         return out

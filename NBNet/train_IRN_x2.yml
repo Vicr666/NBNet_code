@@ -40,8 +40,8 @@ datasets:
   val:
     name: Set5
     mode: LQGT
-    dataroot_GT: /home/rjxy02/data/MAD/val_data/Set5 # path to test HR images
-    dataroot_LQ: /home/rjxy02/data/MAD/val_data/Set5_LR/x2 # path to test reference LR images, not necessary, if not provided, LR images will be generated in dataloader
+    dataroot_GT: /home/rjxy02/data/SR/NBNet_code/NBNet/train/Set5/image_SRF_2 # path to test HR images
+    dataroot_LQ: /home/rjxy02/data/SR/NBNet_code/NBNet/train/Set5/image_LR/x2 # path to test reference LR images, not necessary, if not provided, LR images will be generated in dataloader
 
 
 #### network structures

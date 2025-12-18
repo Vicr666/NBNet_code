@@ -273,7 +273,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 
-# Deep Future Extraction Layer, QDAB
+# Deep Future Extraction Layer, MSGC
 
 def conv_layer2(in_channels, out_channels, kernel_size, stride=1, dilation=1, groups=1, bias=True):
     padding = int((kernel_size - 1) / 2) * dilation
@@ -313,7 +313,7 @@ class MSGC(nn.Module):
         # 2. 进阶特征
         x2_pre = self.gelu(self.conv_b2(x1))
         
-        # 3. 门控操作 (模拟 QDA 的复杂变换)
+        # 3. 门控操作
         # 用 x2 自己去计算一个 Gate，然后对自己进行加权
         # 这是一种自注意力 (Self-Gating) 机制
         gate = self.sigmoid(self.conv_gate(x2_pre))
